@@ -42,17 +42,50 @@ const galaxy_distribution = (
   num_stars: number,
   debug: boolean = false,
   max_failed_iterations: number = 5000,
-  radius_array = [10, 15, 20]
+  radius_array: number[] = [10, 15, 20]
 ): StarTuple[] => {
   const distribution: StarTuple[] = [];
   let failed_iterations = 0;
   let star_idx = 0;
+
+  let radius_total = 0;
+  for (let i = 0; i < radius_array.length; i++) {
+    radius_total += radius_array[i];
+  }
+
+  let radius_weight_denominator = 0;
+  for (const radius of radius_array) {
+    radius_weight_denominator += radius_total - radius;
+  }
+
+  let radius_tracker = new Array(radius_array.length).fill(0);
+
+  const radius_cdf = radius_array.reduce<number[]>((cdf_array, radius, idx) => {
+    let probability_weight = radius_total - radius;
+    if (idx === 0) {
+      cdf_array[idx] = probability_weight;
+    } else {
+      cdf_array[idx] = cdf_array[idx - 1] + probability_weight;
+    }
+    return cdf_array;
+  }, []);
+
   while (star_idx < num_stars && failed_iterations < max_failed_iterations) {
-    const size = radius_array[Math.floor(Math.random() * radius_array.length)];
+    const radius_selection = radius_weight_denominator * Math.random();
+    let radius_index = 0;
+    for (let i = 0; i < radius_cdf.length; i++) {
+      if (radius_selection < radius_cdf[i]) {
+        radius_index = i;
+        break;
+      }
+    }
+
+    const size = radius_array[radius_index];
+
     const diagonal_random = Math.random();
 
-    let x_coord = width - (size + (width - 2 * size) * diagonal_random);
-    let y_coord = size + (height - 2 * size) * diagonal_random;
+    let x_coord = width - (2 * size + (width - 4 * size) * diagonal_random);
+    let y_coord = size + (height - 4 * size) * diagonal_random;
 
     const y_offset_max = Math.min(y_coord - size, height - y_coord - size);
     const x_offset_max = (y_offset_max * height) / width;
@@ -90,6 +123,7 @@ const galaxy_distribution = (
 
     const new_star_props: StarTuple = [x_coord, y_coord, size];
     distribution.push(new_star_props);
+    radius_tracker[radius_index] += 1;
     star_idx++;
   }
   if (failed_iterations == max_failed_iterations) {
@@ -98,7 +132,9 @@ const galaxy_distribution = (
     );
   }
   if (debug) {
-    console.log(distribution);
+    for (let i = 0; i < radius_array.length; i++) {
+      console.log(`radius: ${radius_array[i]}, count: ${radius_tracker[i]}`);
+    }
   }
   return distribution;
 };

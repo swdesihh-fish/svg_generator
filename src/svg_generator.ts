@@ -12,4 +12,6 @@ const svg_generator = (width: number, height: number, num_stars: number) => {
   console.log("File written");
 };
 
-svg_generator(1920, 2560, 300);
+svg_generator(1920, 2560, 500);
+
+export default svg_generator;
