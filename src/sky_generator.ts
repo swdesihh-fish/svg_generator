@@ -1,3 +1,4 @@
+import { error } from "console";
 import { create } from "xmlbuilder2";
 
 type StarTuple = [number, number, number];
@@ -127,14 +128,14 @@ const galaxy_distribution = (
     star_idx++;
   }
   if (failed_iterations == max_failed_iterations) {
-    throw new Error(
-      "Max iterations reached, galaxy distribution might not be ideal"
-    );
+    let error_message = `Max iterations reached, galaxy distribution might not be ideal. Number of stars: ${distribution.length}`;
+    throw new Error(error_message);
   }
   if (debug) {
     for (let i = 0; i < radius_array.length; i++) {
       console.log(`radius: ${radius_array[i]}, count: ${radius_tracker[i]}`);
     }
+    console.log(`Failed iterations: ${failed_iterations}`);
   }
   return distribution;
 };
