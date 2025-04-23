@@ -42,7 +42,7 @@ const galaxy_distribution = (
   height: number,
   num_stars: number,
   debug: boolean = false,
-  max_failed_iterations: number = 5000,
+  max_failed_iterations: number = 100000,
   radius_array: number[] = [10, 15, 20]
 ): StarTuple[] => {
   const distribution: StarTuple[] = [];
@@ -83,7 +83,12 @@ const galaxy_distribution = (
 
     const size = radius_array[radius_index];
 
-    const diagonal_random = Math.random();
+    const diagonal_random_iters = 2;
+    let diagonal_random_sum = 0;
+    for (let rand_iter = 0; rand_iter < diagonal_random_iters; rand_iter++) {
+      diagonal_random_sum += Math.random();
+    }
+    const diagonal_random = diagonal_random_sum / diagonal_random_iters;
 
     let x_coord = width - (2 * size + (width - 4 * size) * diagonal_random);
     let y_coord = size + (height - 4 * size) * diagonal_random;
@@ -91,7 +96,30 @@ const galaxy_distribution = (
     const y_offset_max = Math.min(y_coord - size, height - y_coord - size);
     const x_offset_max = (y_offset_max * height) / width;
 
-    const gaussian_offset_rand = 2 * (fast_gaussian_rand(100) - 0.5);
+    let gaussian_offset_rand = 0;
+    const default_gaussian_iterations = 1000;
+
+    let bulge_min = 0.4;
+    let bulge_max = 0.6;
+
+    if (diagonal_random > bulge_min && diagonal_random < bulge_max) {
+      // f(0.05) = 1
+      // f(0) = 10
+      // y = mx + b, m = (1-b) / .05 = 80, b = 10
+      const max_offset = 2;
+      const offset_slope =
+        (1 - max_offset) / (Math.abs(bulge_max - bulge_min) / 2);
+      let gaussian_width_scale_factor =
+        max_offset + offset_slope * Math.abs(0.5 - diagonal_random);
+      let fast_gaussian_iterations = Math.floor(
+        default_gaussian_iterations / gaussian_width_scale_factor
+      );
+      gaussian_offset_rand =
+        2 * (fast_gaussian_rand(fast_gaussian_iterations) - 0.5);
+    } else {
+      gaussian_offset_rand =
+        2 * (fast_gaussian_rand(default_gaussian_iterations) - 0.5);
+    }
     x_coord = Math.floor(x_coord + x_offset_max * gaussian_offset_rand);
     y_coord = Math.floor(y_coord + y_offset_max * gaussian_offset_rand);
 
@@ -104,11 +132,17 @@ const galaxy_distribution = (
         star_props[2],
       ];
       // Check collisions
-      const distance =
+      const distance_sq =
         (x_coord - star_x) * (x_coord - star_x) +
         (y_coord - star_y) * (y_coord - star_y);
-      const min_offset = 2 * size * size + 2 * star_size * star_size;
-      if (distance < min_offset) {
+
+      let min_offset = 0;
+      if (diagonal_random > bulge_min && diagonal_random < bulge_max) {
+        min_offset = (size * size) / 4 + (star_size * star_size) / 4;
+      } else {
+        min_offset = 2 * size * size + 2 * star_size * star_size;
+      }
+      if (distance_sq < min_offset) {
         console.log(
           `Collision detected: star_x: ${star_x}, star_y: ${star_y}, star_size: ${star_size}, x_coord: ${x_coord}, y_coord: ${y_coord}, size: ${size}`
         );
@@ -128,7 +162,7 @@ const galaxy_distribution = (
     star_idx++;
   }
   if (failed_iterations == max_failed_iterations) {
-    let error_message = `Max iterations reached, galaxy distribution might not be ideal. Number of stars: ${distribution.length}`;
+    let error_message = `Max iterations (${max_failed_iterations}) reached, galaxy distribution might not be ideal. Number of stars: ${distribution.length}`;
     throw new Error(error_message);
   }
   if (debug) {

@@ -3,7 +3,7 @@ import sky_generator from "./sky_generator";
 
 const svg_generator = (width: number, height: number, num_stars: number) => {
   const generated_sky = sky_generator(width, height, num_stars, true);
-  fs.writeFile("../test.svg", generated_sky, "utf8", (err: Error) => {
+  fs.writeFile("../test_gauss1000.svg", generated_sky, "utf8", (err: Error) => {
     if (err) {
       console.error("Error writing file: ", err);
       return;
