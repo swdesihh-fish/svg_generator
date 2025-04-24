@@ -3,7 +3,6 @@ import { create } from "xmlbuilder2";
 
 type StarTuple = [number, number, number];
 type XMLBuilderType = ReturnType<typeof create>;
-
 const create_star = (
   x_coord: number,
   y_coord: number,
@@ -15,13 +14,9 @@ const create_star = (
   const curve_3 = `c0-${radius},0-${radius}-${radius}-${radius}`;
   let star_attributes = {
     d: `M${x_coord},${y_coord}Z${curve_1}${curve_2}${curve_3}`,
-    fill: "#fff",
-    "fill-opacity": "0.75",
-    stroke: "rgba(49,51,82,0.5)",
-    "stroke-width": "0.2",
-    "stroke-opacity": "0.5",
-    "stroke-linecap": "round",
-    "stroke-linejoin": "round",
+    fill: "#ffffffBF",
+    stroke: "#31335280",
+    "stroke-width": ".2",
   };
   star_attributes = { ...star_attributes, ...override_attributes };
   const star = create().ele("path", star_attributes);
@@ -83,7 +78,7 @@ const galaxy_distribution = (
 
     const size = radius_array[radius_index];
 
-    const diagonal_random_iters = 2;
+    const diagonal_random_iters = 3;
     let diagonal_random_sum = 0;
     for (let rand_iter = 0; rand_iter < diagonal_random_iters; rand_iter++) {
       diagonal_random_sum += Math.random();
@@ -99,20 +94,27 @@ const galaxy_distribution = (
     let gaussian_offset_rand = 0;
     const default_gaussian_iterations = 1000;
 
-    let bulge_min = 0.4;
-    let bulge_max = 0.6;
+    let bulge_min = 0;
+    let bulge_max = 1;
+    let bulge_center_scale_factor = 4;
+    let bulge_mid = (bulge_max + bulge_min) / 2;
 
+    // Denominator maximized at == bulge_mid. Solve for scaling = ax^2 + c.
+    // Evaluate Math.abs(diagonal_random - bulge_mid) = x, scaling(0) = bulge_center_scale_factor. scaling(bulge_max - bulge_mid) = 1
+    // Square scaling: ax^2 + c = scaling. c = bulge_center_scale_factor, a * (bulge_max-bulge_mid)^2 + b_c_s_f = 1. (1-b_c_s_f) / (bulge_max-bulge_mid) = a
+    // scaling = (1 - bulge_center_scale_factor) * x^2 / (bulge_max - bulge_mid) + bulge_center_scale_factor
+
+    const bulge_offset = Math.abs(diagonal_random - bulge_mid);
+    let distance_scaling_factor =
+      bulge_center_scale_factor +
+      ((1 - bulge_center_scale_factor) * bulge_offset * bulge_offset) /
+        Math.abs(bulge_max - bulge_mid) +
+      bulge_center_scale_factor;
+
+    // Calculating gaussian for offset from center line.
     if (diagonal_random > bulge_min && diagonal_random < bulge_max) {
-      // f(0.05) = 1
-      // f(0) = 10
-      // y = mx + b, m = (1-b) / .05 = 80, b = 10
-      const max_offset = 2;
-      const offset_slope =
-        (1 - max_offset) / (Math.abs(bulge_max - bulge_min) / 2);
-      let gaussian_width_scale_factor =
-        max_offset + offset_slope * Math.abs(0.5 - diagonal_random);
       let fast_gaussian_iterations = Math.floor(
-        default_gaussian_iterations / gaussian_width_scale_factor
+        default_gaussian_iterations / (distance_scaling_factor / 4)
       );
       gaussian_offset_rand =
         2 * (fast_gaussian_rand(fast_gaussian_iterations) - 0.5);
@@ -131,6 +133,7 @@ const galaxy_distribution = (
         star_props[1],
         star_props[2],
       ];
+
       // Check collisions
       const distance_sq =
         (x_coord - star_x) * (x_coord - star_x) +
@@ -138,14 +141,17 @@ const galaxy_distribution = (
 
       let min_offset = 0;
       if (diagonal_random > bulge_min && diagonal_random < bulge_max) {
-        min_offset = (size * size) / 4 + (star_size * star_size) / 4;
+        min_offset =
+          (size * size + star_size * star_size) / distance_scaling_factor;
       } else {
-        min_offset = 2 * size * size + 2 * star_size * star_size;
+        min_offset = size * size + star_size * star_size;
       }
       if (distance_sq < min_offset) {
-        console.log(
-          `Collision detected: star_x: ${star_x}, star_y: ${star_y}, star_size: ${star_size}, x_coord: ${x_coord}, y_coord: ${y_coord}, size: ${size}`
-        );
+        if (debug) {
+          console.log(
+            `Collision detected: star_x: ${star_x}, star_y: ${star_y}, star_size: ${star_size}, x_coord: ${x_coord}, y_coord: ${y_coord}, size: ${size}`
+          );
+        }
         new_star_valid = false;
         break;
       }
